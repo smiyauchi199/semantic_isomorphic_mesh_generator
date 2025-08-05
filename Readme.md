@@ -1,21 +1,23 @@
-# 陰関数表現を用いた構造化モデル生成法
+# Generation of semantic isomorphic mesh using implicit function representation
 
-このレポジトリは修士論文（題目：「陰関数表現を用いた同一構造を持つ3次元物体メッシュモデル生成法の構築」）の
-提案手法を実装したものです．
+This repository implements the method proposed in a paper, titled:  
+**"Generation of semantic isomorphic mesh using implicit function representation."**
 
 
-## 引用
+## Citation
 
-引用する際は以下のbibtexを参考にしてください．
+If you use this work, please cite the following BibTeX entry:
+
 ```
-@article{itayacvim2022,
-  title = {陰関数表現を用いた同一構造を持つ3次元物体メッシュモデル生成法の構築},
-  author = {響, 板谷 and 翔子, 宮内 and 健一, 諸岡},
-  journal = {情報処理学会 コンピュータビジョンとイメージメディア研究会 (CVIM2022)},
-  month = {11},
-  year = {2022}
+@article{miyauchigeneration,
+  title={Generation of Semantic Isomorphic Mesh Using Implicit Function Representation},
+  author={Miyauchi, Shoko and Itaya, Kyo and Morooka, Ken'ichi},
+  journal = {SSRN: https://ssrn.com/abstract=5205387},
+  month = {4},
+  year = {2025}
 }
 ```
+
 
 ## Requirements
 * Ubuntu 20.04 
@@ -28,168 +30,155 @@
 * point_cloud_utils
 
 
-## 環境構築
-[conda](https://conda.io/en/latest/)コマンドを用いて仮想環境をインストール：
+## Environment Setup
+Install the virtual environment using conda:
 ```bash
 conda env create -f environment.yml
 conda activate deepsdf
 ```
 
 ## Demo
-論文内で使用する4クラス（bathtub，bottle，car，sofa）についての学習済み重みは`examples`以下にあります．
-このレポジトリでは，実験用ディレクトリとしてクラスごとに`examples/{classnames}_dit（学習時の重み・ログ保存など）`
-を使用します．
+Pre-trained weights for the four classes used in the paper (bathtub, bottle, car, sofa) are located in the examples directory.
+Each class uses its own working directory: examples/{class_name}_dit, which contains training logs and model weights.
 
-以降では，例としてsofaに対するコマンド例を示します．
-また，以降ではsofaを例に挙げています．
-
-入力点群に対する構造化モデル生成の実行例：
+Below is a sample command using the sofa class:
 ```bash
-#** レポジトリ内共通変数 **
+#** Common variables **
 GPU_ID=0
-preprocessed_data_dir=/mnt/nas/3DModelDataset/ShapeNet  # 絶対パスの使用を推奨
-#** レポジトリ内共通変数 **
+preprocessed_data_dir=/mnt/nas/3DModelDataset/ShapeNet  # Absolute path recommended
+#** Common variables **
 
 modelId=example_sofa
 python predict_sdf.py -d ./data -f ${modelId}.ply
 CUDA_VISIBLE_DEVICES=${GPU_ID} python reconstruct_structured_meshes.py -d ./data -c latest -m ${modelId} --batch_split 2
 ```
-`オプションbatch_splitの値はGPUのメモリ容量に応じて変更する必要がありますが，
-小さい値の方がプログラム中のループ回数が減少し高速に構造化モデルを生成可能です．`
+`Adjust batch_split based on your GPU memory. Smaller values reduce loop iterations and speed up model generation.`
 
-上記の実行により，出力用ディレクトリ`./data/MeshesWithPoints`に入力点群に対する構造化モデルが`${modelId}.ply`ファイルとして生成されます．
+The output semantic isomorphic mesh (SIM) `${modelId}.ply` will be saved in `./data/MeshesWithPoints`.
 
-## データ作成・前処理
-3次元CADモデルの公開データセットである[ShapeNet](https://www.shapenet.org)を使用します．
-ShapeNetCore.v2をダウンロードし，`3DModelDataset/ShapeNet`以下に置いています．
+## Data Preparation & Preprocessing
+We use [ShapeNet](https://www.shapenet.org). Download it and place it under `3DModelDataset/ShapeNet`.
+Model IDs for training/testing are stored as `.json` files in `examples/splits`.
 
-また，データセットとして使用するモデルIDは`examples/splits`以下に`.json`形式で格納します．
+### SDF from CAD Models
+The signed distance field (SDF) data calculated from CAD models are stored under `3DModelDataset/ShapeNet/SdfSamples`,
+and the normalization parameters that map each CAD model to a unit sphere are stored under `3DModelDataset/ShapeNet/NormalizationParameters`,
+both in `.npz` format.
 
-### CADモデルの符号付き距離場
-CADモデルから計算した符号付き距離場のデータを`3DModelDataset/ShapeNet/SdfSamples`以下に，
-また，各CADモデルの単位球への正規化パラメータを`3DModelDataset/ShapeNet/NormalizationParameters`以下に
-それぞれ`.npz`ファイルとして配置しています．
+These SDFs and normalization parameters are generated using [DeepSDF](https://github.com/facebookresearch/DeepSDF).
 
-これらの符号付き距離場，正規化パラメータの計算には[DeepSDF](https://github.com/facebookresearch/DeepSDF)を使用します．
-DeepSDFの環境構築方法については`DeepSDF_環境構築.txt`を参照してください．
-
-実行例：
+Run Example:
 ```bash
-# CADモデルの符号付き距離場を生成
+# Generate SDF
 python preprocess_data.py --data_dir ${preprocessed_data_dir} --source ${preprocessed_data_dir}/ShapeNetCore.v2/ --name ShapeNetV2 --split examples/splits/sv2_sofas_train.json --skip
-# CADモデルの表面から点群をサンプリング
+# Sample point cloud from surface
 python preprocess_data.py --data_dir ${preprocessed_data_dir} --source ${preprocessed_data_dir}/ShapeNetCore.v2/ --name ShapeNetV2 --split examples/splits/sv2_sofas_train.json --skip --surface
 ```
 
-### 点群の符号付き距離場
-入力点群から計算した符号付き距離場のデータを`3DModelDataset/ShapeNet/PointCloudSdfSamples`以下に置いています．
-符号付き距離場の計算には`make_sdf_dataset.py`を使用します：
+### SDF from Point Clouds
+Save generated SDFs from input point clouds in `3DModelDataset/ShapeNet/PointCloudSdfSamples`.
+The SDFs are generated using `make_sdf_dataset.py`:
 ```bash
 python make_sdf_dataset.py -d ${preprocessed_data_dir} -s examples/splits/sv2_sofas_test.json
 ```
-オプション：
-* `--missing`：欠損を含む点群を扱う場合
-* `--noise`：ノイズを含む点群を扱う場合
+Optional arguments:
+* `--missing`: for incomplete point clouds
+* `--noise`: for noisy point clouds
 
 
-## 学習
+## Training
 
-学習データは，DeepSDFを用いてCADモデルから計算した符号付き距離場です．
-手法の学習部分は以下の3段階で構成されます．
-1. [Deep Implicit Templates](https://github.com/ZhengZerong/DeepImplicitTemplates)の学習
-1. 形状変形ネットワークの学習
-1. テンプレート形状に対する構造化モデルの生成
+The training data consists of SDFs computed from CAD models using DeepSDF.
+The training pipeline includes:
+1. [Deep Implicit Templates](https://github.com/ZhengZerong/DeepImplicitTemplates) training
+2. Inverse warping function (shape deformation network) training
+3. Isomorphic mesh generation from the template shape (Template mesh generation)
 
-### 1. Deep Implicit Templatesの学習
-[Deep Implicit Templates](https://github.com/ZhengZerong/DeepImplicitTemplates)を学習し，
-テンプレート空間を求めます．
-ネットワークパラメータ・学習パラメータは`examples/sofas/specs.json`を参照してください．
+### 1. Deep Implicit Templates (DIT) Training
+We train [Deep Implicit Templates](https://github.com/ZhengZerong/DeepImplicitTemplates) to obtain the template space.
+For network and training parameters, please refer to `examples/sofas/specs.json`.
 ```bash
 CUDA_VISIBLE_DEVICES=${GPU_ID} python train_deep_implicit_templates.py -e examples/sofas_dit --debug --batch_split 2 -c latest -d ${preprocessed_data_dir}
 ```
 
-#### Deep Implicit Templatesの学習結果の確認
+#### Checking Training Results
 ```bash
-# テンプレート形状の確認
+# Template shape
 CUDA_VISIBLE_DEVICES=${GPU_ID} python generate_template_mesh.py -e examples/sofas_dit --debug 
-# 各モデルの形状復元結果の確認（トポロジー・頂点数はモデルごとに異なる）
+# Reconstructed shapes (The topology and number of vertices vary for each model.)
 CUDA_VISIBLE_DEVICES=${GPU_ID} python generate_training_meshes.py -e examples/sofas_dit --debug --start_id 0 --end_id 20 --octree --keep_normalization
-# 各モデルのテンプレート空間における写像結果の確認
+# Canonical positions in template space
 CUDA_VISIBLE_DEVICES=${GPU_ID} python generate_canonical_positions.py -e examples/sofas_dit --debug --start_id 0 --end_id 20
-# 全モデル間のテンプレート空間での対応関係の確認（全モデルをテンプレート空間の座標値をもとに色付けする）
+# Correspondences across all models (All models are color-coded based on their coordinates in the template space.)
 CUDA_VISIBLE_DEVICES=${GPU_ID} python generate_meshes_correspondence.py -e examples/sofas_dit --debug --start_id 0 --end_id 20
 ```
 
-### 2. 形状変形ネットワーク（逆ワーピング関数）の学習
-テンプレート空間から入力空間への逆写像を行う逆ワーピング関数を学習します：
-ネットワークパラメータ・学習パラメータは`examples/sofas/specs.json`を参照してください．
+### 2. Inverse Warping Function Training
+We train an inverse warping function that maps from the template space to the input space.
+For network and training parameters, please refer to `examples/sofas/specs.json`.
 ```bash
 CUDA_VISIBLE_DEVICES=${GPU_ID} python train_inversed_function.py -e examples/sofas_dit --debug --batch_split 2 -c latest -d ${preprocessed_data_dir}
 ```
 
-### 3. テンプレート形状に対する構造化モデル生成
-1.Deep Implicit Templatesの学習により生成されるテンプレート形状の点群モデル（`template_downsampled.ply`）を取得します：
+### 3. Isomorphic mesh generation from the template shape (Template mesh generation)
+1.Obtain the point cloud model of the template shape (`template_downsampled.ply`) generated through the training of Deep Implicit Templates:
 ```bash
 CUDA_VISIBLE_DEVICES=${GPU_ID} python generate_template_mesh.py -e examples/sofas_dit --debug -c latest
 python sample_points.py -f examples/sofas_dit/TrainingMeshes/template.ply -n 2500
 ```
 
-上記のテンプレート形状の点群モデルに対して構造化モデルを生成します．
-構造化モデル生成ネットワークとして，従来手法である[iMG](https://github.com/smiyauchi199/structured_mesh_generator)と
-[Voxel2Mesh](https://github.com/cvlab-epfl/voxel2mesh)のうち，より精度が高い前者を使用します．
-2つの比較手法（iMG，Voxel2Mesh）はそれぞれ`previous_methods`フォルダに置いています．
+We generate an isomorphic mesh (IM) from the above point cloud model of the template shape.
+As the IM generation network, we use the previously proposed method [iMG](https://github.com/smiyauchi199/structured_mesh_generator), 
+which achieves higher accuracy than [Voxel2Mesh](https://github.com/cvlab-epfl/voxel2mesh).
+Both comparison methods (iMG and Voxel2Mesh) are located in the `previous_methods` folder.
 
-また，テンプレート形状に対する構造化モデルの形状復元精度は，入力物体に対する構造化モデルの精度に直結します．
-そのため，クラスごとに構造化モデルを複数回生成し，最も精度が高いモデルをテスト・推論時に使用します．
+The reconstruction accuracy of the IM for the template shape directly affects the accuracy of the SIMs for the input objects.
+Therefore, we generate multiple IMs of the template shape per class and use the one with the highest accuracy during testing and inference.
 
 
-## テスト（構造化モデル生成）
-入力点群から計算した符号付き距離場を用いて構造化モデルを生成します．
+## Testing（SIM generation）
+Use SDFs from point clouds to generate structured meshes:
 ```bash
 CUDA_VISIBLE_DEVICES=${GPU_ID} python reconstruct_structured_meshes.py -e examples/sofas_dit -c latest --split examples/splits/sv2_sofas_test.json -d ${preprocessed_data_dir} --skip --batch_split 1 --pointcloud
 ```
-オプション：
-* `--modelId`：一つの入力点群に対して構造化モデルを生成（**Demo**を参照）
-* `--missing`：欠損を含む入力点群を扱う場合
-* `--noise`：ノイズを含む入力点群を扱う場合
-* `--interpolation`：2つのモデル潜在変数間に対する線形補間
-    * `--first_id`：1つ目のモデル番号
-    * `--second_id`：2つ目のモデル番号
-    * `--num_interpolation`：線形補間数
+Optional arguments:
+* `--modelId`：for single point cloud input (see **Demo**)
+* `--missing`：for incomplete point clouds
+* `--noise`：for noisy point clouds
+* `--interpolation`：interpolate between two latent codes
+    * `--first_id`：The first model ID
+    * `--second_id`：The second model ID
+    * `--num_interpolation`：Number of linear interpolations
 
-各オプションの使い方は`reconstruct.sh`を参照してください．
+See `reconstruct.sh` for more options.
 
-## 評価
-4つの評価指標（`Chamfer距離, Earth Mover's距離,Point-to-Mesh距離, Mesh復元率`）を使用可能です．
-各評価指標の詳細は論文（4.1節）を参照してください．
-また，評価プログラムの詳細なオプション・使用方法については`evaluate.py`及び`eval.sh`を参照してください．
+## Evaluation
+Metrics:
+1. Chamfer Distance
+2. Earth Mover’s Distance
+3. Point-to-Mesh Distance
+4. Mesh Completion Rate
 
-* Chamfer距離の場合
+See `evaluate.py` and `eval.sh` for usage.
+
+* Chamfer Distance
 ```bash
 CUDA_VISIBLE_DEVICES=${GPU_ID} python evaluate.py -sd ${preprocessed_data_dir}/master_results/proposed/sofa/reconstruction/MeshesWithPoints -td ${preprocessed_data_dir} -s examples/splits/sv2_sofas_test.json --metric chamfer
 ```
-オプション：
-* 実験内容（実験名）：
-    * `指定なし`（reconstruction）：入力点群に対する構造化モデル生成結果の評価（4.3節）
-    * `--missing`（completion）：欠損を含む点群に対する生成結果の評価（4.4.1節）
-    * `--noise`（noise）：ノイズを含む点群に対する生成結果の評価（4.4.2節）
-    * `--template`（template）：テンプレート構造化モデルの評価（4.2節）
-* 手法：
-    * `iMG`：比較手法
-    * `Voxel2Mesh`：比較手法
-    * `proposed`：提案手法
-* 評価指標（`--metric`）：
-    * `chamfer`：Chamfer距離
-    * `emd`：Earth Mover's距離
-    * `mesh_acc`：Point-to-Mesh距離
-    * `mesh_comp`：Mesh復元率
+Options:
+* Experiment types:
+    * `指定なし`（reconstruction）：Evaluation of SIM Generation Results for Input Point Clouds
+    * `--missing`（completion）：Evaluation of SIM Generation Results for Point Clouds with Missing Regions
+    * `--noise`（noise）：Evaluation of SIM Generation Results for Point Clouds with Noise
+    * `--template`（template）：template mesh evaluation
 
+* Metrics（`--metric`）：
+    * `chamfer`：Chamfer Distance
+    * `emd`：Earth Mover’s Distance
+    * `mesh_acc`：Point-to-Mesh Distance
+    * `mesh_comp`：Mesh Completion Rate
 
-## その他
-
-
-
-## Acknowledgements
+## References
 * [DeepSDF](https://github.com/facebookresearch/DeepSDF)
 * [Deep Implicit Templates](https://github.com/ZhengZerong/DeepImplicitTemplates)
 * [iMG](https://github.com/smiyauchi199/structured_mesh_generator)
