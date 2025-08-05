@@ -137,7 +137,7 @@ Therefore, we generate multiple IMs of the template shape per class and use the 
 
 
 ## Testing（SIM generation）
-Use SDFs from point clouds to generate structured meshes:
+Use SDFs from point clouds to generate SIMs:
 ```bash
 CUDA_VISIBLE_DEVICES=${GPU_ID} python reconstruct_structured_meshes.py -e examples/sofas_dit -c latest --split examples/splits/sv2_sofas_test.json -d ${preprocessed_data_dir} --skip --batch_split 1 --pointcloud
 ```
