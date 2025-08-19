@@ -198,7 +198,7 @@ Options:
 
 To reproduce the results without training, we provide:  
 
-- Pretrained network weights and the template mesh (`template_smg.obj`) used in the experiments under:  
+- Pretrained network weights and the template mesh (`template_smg.ply`) used in the experiments under:  
   `examples/bathtubs_dit/`  
 - Input files generated using the pretrained network under:  
   - `data/Codes`  
