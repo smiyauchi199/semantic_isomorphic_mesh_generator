@@ -222,9 +222,10 @@ if __name__ == "__main__":
             'The experiment directory does not include specifications file "specs.json"'
         )
 
-    specs = json.load(open(specs_filename))
+    specs = json.load(open(specs_filename, encoding="utf-8"))
+    ###ここでエラーでるかも
     class_name = specs_filename.split('/', 3)[1].split('_')[0][:-1]
-
+    #class_name = "sofas"
     arch = __import__("networks." + specs["NetworkArch"], fromlist=["Decoder", "Generator"])
 
     latent_size = specs["CodeLength"]
@@ -247,6 +248,8 @@ if __name__ == "__main__":
     saved_generator_state = torch.load(
         os.path.join(
             args.experiment_directory, ws.generator_params_subdir, args.checkpoint + ".pth"
+            #????????
+            #args.experiment_directory, ws.optimizer_params_subdir, args.checkpoint + ".pth"
         )
     )
     generator.load_state_dict(saved_generator_state["model_state_dict"])
@@ -258,13 +261,14 @@ if __name__ == "__main__":
     template_filename = os.path.join(args.experiment_directory,
                                      ws.training_meshes_subdir,
                                      str(saved_model_epoch), 'template_smg')
-    template_v, template_f = read_from_plyfile(template_filename)
+    template_v, template_f = read_from_plyfile(template_filename+'.ply')
 
     with open(args.split_filename, "r") as f:
         split = json.load(f)
 
     if args.modelId:
-        npz_filenames = [args.modelId + '.ply']
+        #npz_filenames = [args.modelId + '.ply']
+        npz_filenames = [args.modelId + '.npz']
         reconstruction_dir = args.data_source
     elif args.pointcloud:
         if args.missing:
