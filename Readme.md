@@ -188,7 +188,7 @@ Options:
 ## 1. Technical Details
 
 - **GPU Requirement**: NVIDIA GeForce RTX 3090 × 2  
-- **Training Time (Bathtub case)**: ******  
+- **Training Time (Bathtub case)**: Steps 1 and 2 take approximately five and a half hours, while Step 3 takes less than one hour.
 - **Tested OS**: Windows  
 - **Environment List**: Please refer to `package_list_for_test.txt`  
 
